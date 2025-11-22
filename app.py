@@ -210,6 +210,13 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 outputs=whisper_orig_output,
             )
 
+            # Auto-populate ground truth when audio changes
+            whisper_orig_audio.change(
+                fn=get_ground_truth,
+                inputs=whisper_orig_audio,
+                outputs=whisper_orig_ground_truth,
+            )
+
             # Example audio samples
             gr.Examples(
                 examples=[
@@ -225,8 +232,6 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                     ["samples/segment_048.wav"],
                 ],
                 inputs=whisper_orig_audio,
-                outputs=whisper_orig_ground_truth,
-                fn=get_ground_truth,
                 label="Try Sample Audio Files",
             )
 
@@ -270,6 +275,13 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 fn=transcribe_parakeet, inputs=parakeet_audio, outputs=parakeet_output
             )
 
+            # Auto-populate ground truth when audio changes
+            parakeet_audio.change(
+                fn=get_ground_truth,
+                inputs=parakeet_audio,
+                outputs=parakeet_ground_truth,
+            )
+
             # Example audio samples
             gr.Examples(
                 examples=[
@@ -285,8 +297,6 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                     ["samples/segment_048.wav"],
                 ],
                 inputs=parakeet_audio,
-                outputs=parakeet_ground_truth,
-                fn=get_ground_truth,
                 label="Try Sample Audio Files",
             )
 
@@ -357,6 +367,13 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 ],
             )
 
+            # Auto-populate ground truth when audio changes
+            compare_audio.change(
+                fn=get_ground_truth,
+                inputs=compare_audio,
+                outputs=compare_ground_truth,
+            )
+
             # Example audio samples
             gr.Examples(
                 examples=[
@@ -372,8 +389,6 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                     ["samples/segment_048.wav"],
                 ],
                 inputs=compare_audio,
-                outputs=compare_ground_truth,
-                fn=get_ground_truth,
                 label="Try Sample Audio Files",
             )
 
