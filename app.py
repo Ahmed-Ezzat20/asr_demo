@@ -48,68 +48,39 @@ whisper_original_pipe = None
 parakeet_model = None
 
 
-def load_whisper_original():
-    """Load original Whisper Large v3 model"""
-    global whisper_original_pipe
-
-    try:
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.float32  # Always use fp32 for full capabilities
-
-        model = AutoModelForSpeechSeq2Seq.from_pretrained(
-            WHISPER_ORIGINAL_MODEL_ID,
-            torch_dtype=torch_dtype,
-            use_safetensors=True,
-        )
-        model.to(device)
-
-        processor = AutoProcessor.from_pretrained(WHISPER_ORIGINAL_MODEL_ID)
-
-        whisper_original_pipe = pipeline(
-            "automatic-speech-recognition",
-            model=model,
-            tokenizer=processor.tokenizer,
-            feature_extractor=processor.feature_extractor,
-            max_new_tokens=128,
-            chunk_length_s=30,
-            batch_size=16,
-            return_timestamps=False,
-            torch_dtype=torch_dtype,
-            device=device,
-        )
-
-        return "✅ Whisper Original model loaded successfully!"
-    except Exception as e:
-        return f"❌ Error loading Whisper Original model: {str(e)}"
-
-
-def load_parakeet_model():
-    """Load Parakeet model for ASR using NeMo"""
-    global parakeet_model
-
-    try:
-        # Import NeMo ASR
-        import nemo.collections.asr as nemo_asr
-
-        # Load the model from Hugging Face
-        parakeet_model = nemo_asr.models.ASRModel.from_pretrained(PARAKEET_MODEL_ID)
-
-        # Ensure model uses fp32 for full capabilities on CUDA
-        if torch.cuda.is_available():
-            parakeet_model = parakeet_model.cuda()
-            parakeet_model = parakeet_model.float()  # Explicitly set to fp32
-
-        return "✅ Parakeet model loaded successfully!"
-    except ImportError:
-        return "⚠️ NeMo is not installed. Installing NeMo... Please wait and try loading again after installation completes."
-    except Exception as e:
-        return f"⚠️ Parakeet model loading failed: {str(e)}\n\nNote: This model requires NVIDIA NeMo. Install with: pip install nemo_toolkit[asr]"
-
-
 def transcribe_whisper_original(audio_path):
     """Transcribe audio using original Whisper model"""
+    global whisper_original_pipe
+
+    # Auto-load model on first use
     if whisper_original_pipe is None:
-        return "❌ Whisper Original model not loaded. Please load the model first."
+        try:
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
+            torch_dtype = torch.float32  # Always use fp32 for full capabilities
+
+            model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                WHISPER_ORIGINAL_MODEL_ID,
+                torch_dtype=torch_dtype,
+                use_safetensors=True,
+            )
+            model.to(device)
+
+            processor = AutoProcessor.from_pretrained(WHISPER_ORIGINAL_MODEL_ID)
+
+            whisper_original_pipe = pipeline(
+                "automatic-speech-recognition",
+                model=model,
+                tokenizer=processor.tokenizer,
+                feature_extractor=processor.feature_extractor,
+                max_new_tokens=128,
+                chunk_length_s=30,
+                batch_size=16,
+                return_timestamps=False,
+                torch_dtype=torch_dtype,
+                device=device,
+            )
+        except Exception as e:
+            return f"❌ Error loading Whisper Original model: {str(e)}"
 
     try:
         # Load and resample audio to 16kHz
@@ -125,8 +96,26 @@ def transcribe_whisper_original(audio_path):
 
 def transcribe_parakeet(audio_path):
     """Transcribe audio using Parakeet model"""
+    global parakeet_model
+
+    # Auto-load model on first use
     if parakeet_model is None:
-        return "❌ Parakeet model not loaded. Please load the model first."
+        try:
+            # Import NeMo ASR
+            import nemo.collections.asr as nemo_asr
+
+            # Load the model from Hugging Face
+            parakeet_model = nemo_asr.models.ASRModel.from_pretrained(PARAKEET_MODEL_ID)
+
+            # Ensure model uses fp32 for full capabilities on CUDA
+            if torch.cuda.is_available():
+                parakeet_model = parakeet_model.cuda()
+                parakeet_model = parakeet_model.float()  # Explicitly set to fp32
+
+        except ImportError:
+            return "❌ NeMo is not installed. Please install with: pip install nemo_toolkit[asr]"
+        except Exception as e:
+            return f"❌ Error loading Parakeet model: {str(e)}\n\nNote: This model requires NVIDIA NeMo toolkit."
 
     try:
         # NeMo models expect file paths directly
@@ -182,12 +171,9 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 - **WER**: Baseline (not fine-tuned for ATC)
                 - **Base**: OpenAI Whisper Large v3
                 - **Optimized for**: General speech recognition
+                - **Note**: Model loads automatically on first transcription
                 """
             )
-
-            with gr.Row():
-                whisper_orig_load_btn = gr.Button("Load Model", variant="primary")
-                whisper_orig_status = gr.Textbox(label="Status", interactive=False)
 
             whisper_orig_audio = gr.Audio(
                 label="Upload Audio File", type="filepath", sources=["upload"]
@@ -209,10 +195,6 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 lines=8,
                 interactive=False,
                 placeholder="Transcription will appear here...",
-            )
-
-            whisper_orig_load_btn.click(
-                fn=load_whisper_original, outputs=whisper_orig_status
             )
 
             whisper_orig_transcribe_btn.click(
@@ -251,12 +233,9 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 - **Base**: NVIDIA Parakeet-TDT-0.6B-v3
                 - **Optimized for**: ATC communications with superior accuracy
                 - **Framework**: NVIDIA NeMo
+                - **Note**: Model loads automatically on first transcription
                 """
             )
-
-            with gr.Row():
-                parakeet_load_btn = gr.Button("Load Model", variant="primary")
-                parakeet_status = gr.Textbox(label="Status", interactive=False)
 
             parakeet_audio = gr.Audio(
                 label="Upload Audio File", type="filepath", sources=["upload"]
@@ -279,8 +258,6 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 interactive=False,
                 placeholder="Transcription will appear here...",
             )
-
-            parakeet_load_btn.click(fn=load_parakeet_model, outputs=parakeet_status)
 
             parakeet_transcribe_btn.click(
                 fn=transcribe_parakeet, inputs=parakeet_audio, outputs=parakeet_output
@@ -312,11 +289,9 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 """
                 ### Compare Both Models Side-by-Side
                 Upload an audio file and get transcriptions from both models simultaneously.
-                """
-            )
 
-            gr.Markdown(
-                "#### ⚠️ Note: Both models must be loaded first in their respective tabs!"
+                **Note**: Models load automatically on first use. Initial transcription may take longer while models are loading.
+                """
             )
 
             compare_audio = gr.Audio(
