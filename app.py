@@ -112,10 +112,19 @@ def transcribe_parakeet(audio_path):
                 parakeet_model = parakeet_model.cuda()
                 parakeet_model = parakeet_model.float()  # Explicitly set to fp32
 
-        except ImportError:
+        except ImportError as e:
+            if "ml_dtypes" in str(e) or "float4_e2m1fn" in str(e):
+                return "❌ Dependency error: ml_dtypes version incompatible.\n\nFix: Run 'pip install --upgrade ml_dtypes jax jaxlib'\nOr reinstall: pip install -r requirements.txt"
             return "❌ NeMo is not installed. Please install with: pip install nemo_toolkit[asr]"
-        except Exception as e:
+        except AttributeError as e:
+            if "float4_e2m1fn" in str(e):
+                return "❌ Dependency error: ml_dtypes version incompatible.\n\nFix: Run 'pip install --upgrade ml_dtypes>=0.4.0 jax>=0.4.20 jaxlib>=0.4.20'\nOr reinstall: pip install -r requirements.txt"
             return f"❌ Error loading Parakeet model: {str(e)}\n\nNote: This model requires NVIDIA NeMo toolkit."
+        except Exception as e:
+            error_msg = str(e)
+            if "float4_e2m1fn" in error_msg or "ml_dtypes" in error_msg:
+                return f"❌ Dependency error: {error_msg}\n\nFix: Run 'pip install --upgrade ml_dtypes>=0.4.0 jax>=0.4.20 jaxlib>=0.4.20'\nOr reinstall: pip install -r requirements.txt"
+            return f"❌ Error loading Parakeet model: {error_msg}\n\nNote: This model requires NVIDIA NeMo toolkit."
 
     try:
         # NeMo models expect file paths directly
