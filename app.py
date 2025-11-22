@@ -5,6 +5,39 @@ import librosa
 import numpy as np
 import gc
 import os
+import csv
+
+# Load ground truth transcripts from CSV
+def load_ground_truth_transcripts():
+    """Load reference transcripts from segments_transcripts.csv"""
+    transcripts = {}
+    csv_path = "segments_transcripts.csv"
+
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                segment_name = row['Segment Name']
+                transcript = row['Transcript']
+                transcripts[segment_name] = transcript
+    except Exception as e:
+        print(f"Warning: Could not load ground truth transcripts: {e}")
+
+    return transcripts
+
+# Load transcripts at startup
+GROUND_TRUTH = load_ground_truth_transcripts()
+
+def get_ground_truth(audio_path):
+    """Get ground truth transcript for a given audio file path"""
+    if audio_path is None:
+        return ""
+
+    # Extract filename from path
+    filename = os.path.basename(audio_path)
+
+    # Return the ground truth transcript if available
+    return GROUND_TRUTH.get(filename, "Ground truth not available for this file")
 
 # Model configurations
 WHISPER_ORIGINAL_MODEL_ID = "openai/whisper-large-v3"
@@ -21,12 +54,11 @@ def load_whisper_original():
 
     try:
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        torch_dtype = torch.float32  # Always use fp32 for full capabilities
 
         model = AutoModelForSpeechSeq2Seq.from_pretrained(
             WHISPER_ORIGINAL_MODEL_ID,
             torch_dtype=torch_dtype,
-            low_cpu_mem_usage=True,
             use_safetensors=True,
         )
         model.to(device)
@@ -61,6 +93,11 @@ def load_parakeet_model():
 
         # Load the model from Hugging Face
         parakeet_model = nemo_asr.models.ASRModel.from_pretrained(PARAKEET_MODEL_ID)
+
+        # Ensure model uses fp32 for full capabilities on CUDA
+        if torch.cuda.is_available():
+            parakeet_model = parakeet_model.cuda()
+            parakeet_model = parakeet_model.float()  # Explicitly set to fp32
 
         return "✅ Parakeet model loaded successfully!"
     except ImportError:
@@ -160,8 +197,15 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 "Transcribe", variant="primary", size="lg"
             )
 
+            whisper_orig_ground_truth = gr.Textbox(
+                label="📝 Reference Transcript (Ground Truth)",
+                lines=3,
+                interactive=False,
+                placeholder="Select a sample audio to see the reference transcript...",
+            )
+
             whisper_orig_output = gr.Textbox(
-                label="Transcription",
+                label="🤖 Model Transcription",
                 lines=8,
                 interactive=False,
                 placeholder="Transcription will appear here...",
@@ -175,6 +219,26 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 fn=transcribe_whisper_original,
                 inputs=whisper_orig_audio,
                 outputs=whisper_orig_output,
+            )
+
+            # Example audio samples
+            gr.Examples(
+                examples=[
+                    ["samples/segment_002.wav"],
+                    ["samples/segment_003.wav"],
+                    ["samples/segment_006.wav"],
+                    ["samples/segment_013.wav"],
+                    ["samples/segment_017.wav"],
+                    ["samples/segment_026.wav"],
+                    ["samples/segment_033.wav"],
+                    ["samples/segment_036.wav"],
+                    ["samples/segment_045.wav"],
+                    ["samples/segment_048.wav"],
+                ],
+                inputs=whisper_orig_audio,
+                outputs=whisper_orig_ground_truth,
+                fn=get_ground_truth,
+                label="Try Sample Audio Files",
             )
 
         # Tab 2: Parakeet
@@ -202,8 +266,15 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                 "Transcribe", variant="primary", size="lg"
             )
 
+            parakeet_ground_truth = gr.Textbox(
+                label="📝 Reference Transcript (Ground Truth)",
+                lines=3,
+                interactive=False,
+                placeholder="Select a sample audio to see the reference transcript...",
+            )
+
             parakeet_output = gr.Textbox(
-                label="Transcription",
+                label="🤖 Model Transcription",
                 lines=8,
                 interactive=False,
                 placeholder="Transcription will appear here...",
@@ -213,6 +284,26 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
 
             parakeet_transcribe_btn.click(
                 fn=transcribe_parakeet, inputs=parakeet_audio, outputs=parakeet_output
+            )
+
+            # Example audio samples
+            gr.Examples(
+                examples=[
+                    ["samples/segment_002.wav"],
+                    ["samples/segment_003.wav"],
+                    ["samples/segment_006.wav"],
+                    ["samples/segment_013.wav"],
+                    ["samples/segment_017.wav"],
+                    ["samples/segment_026.wav"],
+                    ["samples/segment_033.wav"],
+                    ["samples/segment_036.wav"],
+                    ["samples/segment_045.wav"],
+                    ["samples/segment_048.wav"],
+                ],
+                inputs=parakeet_audio,
+                outputs=parakeet_ground_truth,
+                fn=get_ground_truth,
+                label="Try Sample Audio Files",
             )
 
         # Tab 3: Compare All
@@ -234,6 +325,13 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
 
             compare_btn = gr.Button(
                 "Transcribe with Both Models", variant="primary", size="lg"
+            )
+
+            compare_ground_truth = gr.Textbox(
+                label="📝 Reference Transcript (Ground Truth)",
+                lines=3,
+                interactive=False,
+                placeholder="Select a sample audio to see the reference transcript...",
             )
 
             with gr.Row():
@@ -275,6 +373,26 @@ with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
                     compare_whisper_orig_output,
                     compare_parakeet_output,
                 ],
+            )
+
+            # Example audio samples
+            gr.Examples(
+                examples=[
+                    ["samples/segment_002.wav"],
+                    ["samples/segment_003.wav"],
+                    ["samples/segment_006.wav"],
+                    ["samples/segment_013.wav"],
+                    ["samples/segment_017.wav"],
+                    ["samples/segment_026.wav"],
+                    ["samples/segment_033.wav"],
+                    ["samples/segment_036.wav"],
+                    ["samples/segment_045.wav"],
+                    ["samples/segment_048.wav"],
+                ],
+                inputs=compare_audio,
+                outputs=compare_ground_truth,
+                fn=get_ground_truth,
+                label="Try Sample Audio Files",
             )
 
     gr.Markdown(
