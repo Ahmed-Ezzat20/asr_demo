@@ -101,45 +101,43 @@ def transcribe_parakeet(audio_path):
     # Auto-load model on first use
     if parakeet_model is None:
         try:
-            # Import NeMo ASR
             import nemo.collections.asr as nemo_asr
 
-            # Load the model from Hugging Face
-            parakeet_model = nemo_asr.models.ASRModel.from_pretrained(PARAKEET_MODEL_ID)
+            # 1. Try loading normally
+            try:
+                parakeet_model = nemo_asr.models.ASRModel.from_pretrained(model_name=PARAKEET_MODEL_ID)
+            except Exception:
+                # 2. If that fails, try restoring from the specific .nemo file (common for HF Hub models)
+                # You might need to download it first using huggingface_hub
+                from huggingface_hub import hf_hub_download
+                model_path = hf_hub_download(repo_id=PARAKEET_MODEL_ID, filename="model.nemo")
+                parakeet_model = nemo_asr.models.ASRModel.restore_from(model_path)
 
-            # Ensure model uses fp32 for full capabilities on CUDA
             if torch.cuda.is_available():
                 parakeet_model = parakeet_model.cuda()
-                parakeet_model = parakeet_model.float()  # Explicitly set to fp32
 
-        except ImportError as e:
-            if "ml_dtypes" in str(e) or "float4_e2m1fn" in str(e):
-                return "❌ Dependency error: ml_dtypes version incompatible.\n\nFix: Run 'pip install --upgrade ml_dtypes jax jaxlib'\nOr reinstall: pip install -r requirements.txt"
-            return "❌ NeMo is not installed. Please install with: pip install nemo_toolkit[asr]"
-        except AttributeError as e:
-            if "float4_e2m1fn" in str(e):
-                return "❌ Dependency error: ml_dtypes version incompatible.\n\nFix: Run 'pip install --upgrade ml_dtypes>=0.4.0 jax>=0.4.20 jaxlib>=0.4.20'\nOr reinstall: pip install -r requirements.txt"
-            return f"❌ Error loading Parakeet model: {str(e)}\n\nNote: This model requires NVIDIA NeMo toolkit."
         except Exception as e:
-            error_msg = str(e)
-            if "float4_e2m1fn" in error_msg or "ml_dtypes" in error_msg:
-                return f"❌ Dependency error: {error_msg}\n\nFix: Run 'pip install --upgrade ml_dtypes>=0.4.0 jax>=0.4.20 jaxlib>=0.4.20'\nOr reinstall: pip install -r requirements.txt"
-            return f"❌ Error loading Parakeet model: {error_msg}\n\nNote: This model requires NVIDIA NeMo toolkit."
+            # Return the ACTUAL error message for debugging
+            return f"❌ Critical Error Loading Model: {str(e)}"
 
     try:
-        # NeMo models expect file paths directly
+        # NeMo transcription expects a list of paths
         result = parakeet_model.transcribe([audio_path])
 
-        # Extract text from result
+        # Extract text safely
         if isinstance(result, list) and len(result) > 0:
-            if hasattr(result[0], "text"):
-                return result[0].text
+            # Check if result is a string or object with 'text' attribute
+            first_result = result[0]
+            if isinstance(first_result, str):
+                return first_result
+            elif hasattr(first_result, "text"):
+                return first_result.text
             else:
-                return str(result[0])
-        else:
-            return str(result)
+                return str(first_result)
+        return str(result)
+
     except Exception as e:
-        return f"❌ Error during Parakeet transcription: {str(e)}"
+        return f"❌ Transcription Failed: {str(e)}"
 
 
 # Custom CSS for better styling
