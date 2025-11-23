@@ -197,7 +197,10 @@ custom_css = """
 """
 
 # Create Gradio interface with tabs
-with gr.Blocks(title="ATC ASR - Model Comparison", css=custom_css) as demo:
+with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
+    # Inject CSS using gr.HTML (compatible with all Gradio versions)
+    gr.HTML(f"<style>{custom_css}</style>")
+
     gr.Markdown(
         """
         # 🎙️ Air Traffic Control ASR - Model Comparison
