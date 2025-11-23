@@ -51,11 +51,11 @@ GROUND_TRUTH = {
     "segment_042.wav": "FOR INFORMATION WE D LIKE TO START ONE ENGINE",
     "segment_043.wav": "I WOULDN T RECOMMEND THAT SINCE DELAY IS NOT DETERMINED DO NOT THINK IT WILL GET RESOLVED I LL CALL YOU BACK",
     "segment_044.wav": "OKAY",
-    "segment_045.wav": "DUBAI SYRIAN AIR FIVE ONE FIVE WE CAN HOLD FOR FOUR ZERO MINUTES OTHERWISE PROCEEDING TO ALTERNATE",
+    "segment_045.wav": "DUBAI SYRIAN AIR FIVE ONE FIVE WE CAN HOLD FOR FOURTY MINUTES OTHERWISE PROCEEDING TO ALTERNATE",
     "segment_046.wav": "I LET YOU KNOW DELAY NOT DETERMINED INCIDENT ON THE AIRFIELD I LL CALL YOU BACK",
     "segment_047.wav": "OKAY WE CAN LAND AT RAS AL KHAIMAH SYRIAN AIR FIVE ONE FIVE",
     "segment_048.wav": "ZERO SIX ZERO ROGER HOLD YOUR POSITION UNDETERMINED DELAY WE HAD AN INCIDENT ON THE AIRFIELD AND AT THIS STAGE I HAVE NO ADDITIONAL INFORMATION BUT THE AIRPORT THE AIRFIELD IS TEMPORARILY CLOSED",
-    "segment_049.wav": "WE CAN HOLD FOUR ZERO MINUTES SYRIAN AIR FIVE ONE FIVE",
+    "segment_049.wav": "WE CAN HOLD FOURTY MINUTES SYRIAN AIR FIVE ONE FIVE",
     "segment_050.wav": "FDBSEVEN THREE ONE",
     "segment_051.wav": "SKY DUBAI SEVEN THREE ONE",
     "segment_052.wav": "FDBSEVEN THREE ONE",
@@ -71,6 +71,7 @@ GROUND_TRUTH = {
     "segment_062.wav": "UNDERSTOOD",
 }
 
+
 def get_ground_truth(audio_path):
     """Get ground truth transcript for a given audio file path"""
     if audio_path is None:
@@ -81,6 +82,7 @@ def get_ground_truth(audio_path):
 
     # Return the ground truth transcript if available
     return GROUND_TRUTH.get(filename, "Ground truth not available for this file")
+
 
 # Model configurations
 WHISPER_ORIGINAL_MODEL_ID = "openai/whisper-large-v3"
@@ -150,12 +152,17 @@ def transcribe_parakeet(audio_path):
 
             # 1. Try loading normally
             try:
-                parakeet_model = nemo_asr.models.ASRModel.from_pretrained(model_name=PARAKEET_MODEL_ID)
+                parakeet_model = nemo_asr.models.ASRModel.from_pretrained(
+                    model_name=PARAKEET_MODEL_ID
+                )
             except Exception:
                 # 2. If that fails, try restoring from the specific .nemo file (common for HF Hub models)
                 # You might need to download it first using huggingface_hub
                 from huggingface_hub import hf_hub_download
-                model_path = hf_hub_download(repo_id=PARAKEET_MODEL_ID, filename="model.nemo")
+
+                model_path = hf_hub_download(
+                    repo_id=PARAKEET_MODEL_ID, filename="model.nemo"
+                )
                 parakeet_model = nemo_asr.models.ASRModel.restore_from(model_path)
 
             if torch.cuda.is_available():
@@ -197,16 +204,17 @@ def transcribe_parakeet_mrezzat(audio_path):
 
             # Download the .nemo file from HuggingFace
             nemo_file = hf_hub_download(
-                repo_id=PARAKEET_MREZZAT_MODEL_ID,
-                filename="parakeet_atc_uae.nemo"
+                repo_id=PARAKEET_MREZZAT_MODEL_ID, filename="parakeet_atc_uae.nemo"
             )
 
             # Load the model using restore_from
-            parakeet_mrezzat_model = nemo_asr.models.ASRModel.restore_from(restore_path=nemo_file)
+            parakeet_mrezzat_model = nemo_asr.models.ASRModel.restore_from(
+                restore_path=nemo_file
+            )
 
             # Move to GPU if available
             if torch.cuda.is_available():
-                parakeet_mrezzat_model = parakeet_mrezzat_model.to('cuda')
+                parakeet_mrezzat_model = parakeet_mrezzat_model.to("cuda")
 
         except Exception as e:
             # Return the ACTUAL error message for debugging
@@ -432,7 +440,9 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
             )
 
             parakeet_mrezzat_transcribe_btn.click(
-                fn=transcribe_parakeet_mrezzat, inputs=parakeet_mrezzat_audio, outputs=parakeet_mrezzat_output
+                fn=transcribe_parakeet_mrezzat,
+                inputs=parakeet_mrezzat_audio,
+                outputs=parakeet_mrezzat_output,
             )
 
             # Auto-populate ground truth when audio changes
