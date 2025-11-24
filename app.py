@@ -202,16 +202,21 @@ def transcribe_parakeet(audio_path):
         result = parakeet_model.transcribe([audio_path])
 
         # Extract text safely
+        transcription = ""
         if isinstance(result, list) and len(result) > 0:
             # Check if result is a string or object with 'text' attribute
             first_result = result[0]
             if isinstance(first_result, str):
-                return first_result
+                transcription = first_result
             elif hasattr(first_result, "text"):
-                return first_result.text
+                transcription = first_result.text
             else:
-                return str(first_result)
-        return str(result)
+                transcription = str(first_result)
+        else:
+            transcription = str(result)
+
+        # Always return uppercase
+        return transcription.upper()
 
     except Exception as e:
         return f"❌ Transcription Failed: {str(e)}"
