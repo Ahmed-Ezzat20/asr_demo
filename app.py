@@ -111,13 +111,11 @@ def calculate_wer(reference, hypothesis):
 
 # Model configurations
 WHISPER_ORIGINAL_MODEL_ID = "openai/whisper-large-v3"
-PARAKEET_MODEL_ID = "qenneth/parakeet-tdt-0.6b-v3-finetuned-for-ATC"
-PARAKEET_MREZZAT_MODEL_ID = "MrEzzat/parakeet_atc"
+GENARABIA_MODEL_ID = "MrEzzat/parakeet_atc"
 
 # Global variables for models
 whisper_original_pipe = None
-parakeet_model = None
-parakeet_mrezzat_model = None
+genarabia_model = None
 
 
 def transcribe_whisper_original(audio_path):
@@ -166,85 +164,29 @@ def transcribe_whisper_original(audio_path):
         return f"❌ Error during Whisper Original transcription: {str(e)}"
 
 
-def transcribe_parakeet(audio_path):
-    """Transcribe audio using Parakeet model"""
-    global parakeet_model
+def transcribe_genarabia(audio_path):
+    """Transcribe audio using GenArabia ASR model"""
+    global genarabia_model
 
     # Auto-load model on first use
-    if parakeet_model is None:
-        try:
-            import nemo.collections.asr as nemo_asr
-
-            # 1. Try loading normally
-            try:
-                parakeet_model = nemo_asr.models.ASRModel.from_pretrained(
-                    model_name=PARAKEET_MODEL_ID
-                )
-            except Exception:
-                # 2. If that fails, try restoring from the specific .nemo file (common for HF Hub models)
-                # You might need to download it first using huggingface_hub
-                from huggingface_hub import hf_hub_download
-
-                model_path = hf_hub_download(
-                    repo_id=PARAKEET_MODEL_ID, filename="model.nemo"
-                )
-                parakeet_model = nemo_asr.models.ASRModel.restore_from(model_path)
-
-            if torch.cuda.is_available():
-                parakeet_model = parakeet_model.cuda()
-
-        except Exception as e:
-            # Return the ACTUAL error message for debugging
-            return f"❌ Critical Error Loading Model: {str(e)}"
-
-    try:
-        # NeMo transcription expects a list of paths
-        result = parakeet_model.transcribe([audio_path])
-
-        # Extract text safely
-        transcription = ""
-        if isinstance(result, list) and len(result) > 0:
-            # Check if result is a string or object with 'text' attribute
-            first_result = result[0]
-            if isinstance(first_result, str):
-                transcription = first_result
-            elif hasattr(first_result, "text"):
-                transcription = first_result.text
-            else:
-                transcription = str(first_result)
-        else:
-            transcription = str(result)
-
-        # Always return uppercase
-        return transcription.upper()
-
-    except Exception as e:
-        return f"❌ Transcription Failed: {str(e)}"
-
-
-def transcribe_parakeet_mrezzat(audio_path):
-    """Transcribe audio using MrEzzat's Parakeet model"""
-    global parakeet_mrezzat_model
-
-    # Auto-load model on first use
-    if parakeet_mrezzat_model is None:
+    if genarabia_model is None:
         try:
             import nemo.collections.asr as nemo_asr
             from huggingface_hub import hf_hub_download
 
             # Download the .nemo file from HuggingFace
             nemo_file = hf_hub_download(
-                repo_id=PARAKEET_MREZZAT_MODEL_ID, filename="parakeet_atc_uae.nemo"
+                repo_id=GENARABIA_MODEL_ID, filename="parakeet_atc_uae.nemo"
             )
 
             # Load the model using restore_from
-            parakeet_mrezzat_model = nemo_asr.models.ASRModel.restore_from(
+            genarabia_model = nemo_asr.models.ASRModel.restore_from(
                 restore_path=nemo_file
             )
 
             # Move to GPU if available
             if torch.cuda.is_available():
-                parakeet_mrezzat_model = parakeet_mrezzat_model.to("cuda")
+                genarabia_model = genarabia_model.to("cuda")
 
         except Exception as e:
             # Return the ACTUAL error message for debugging
@@ -252,7 +194,7 @@ def transcribe_parakeet_mrezzat(audio_path):
 
     try:
         # NeMo transcription expects a list of paths
-        result = parakeet_mrezzat_model.transcribe([audio_path])
+        result = genarabia_model.transcribe([audio_path])
 
         # Extract text safely
         if isinstance(result, list) and len(result) > 0:
@@ -292,11 +234,10 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
         """
         # 🎙️ Air Traffic Control ASR - Model Comparison
 
-        Compare three state-of-the-art ASR models on air traffic control (ATC) communications:
+        Compare two state-of-the-art ASR models on air traffic control (ATC) communications:
 
         1. **Whisper Large v3 Original** - Baseline performance
-        2. **Parakeet-TDT-0.6B-v3 Fine-tuned for ATC**
-        3. **Parakeet GenArabia ATC** - Custom fine-tuned model for UAE ATC
+        2. **GenArabia ASR** - Custom fine-tuned model for UAE ATC
 
         Switch between tabs to test each model individually or compare results side-by-side.
         """
@@ -380,88 +321,11 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 label="Try Sample Audio Files",
             )
 
-        # Tab 2: Parakeet
-        with gr.Tab("🟢 Parakeet Fine-tuned (ATC)"):
+        # Tab 2: GenArabia ASR
+        with gr.Tab("🟣 GenArabia ASR"):
             gr.Markdown(
                 """
-                ### Parakeet-TDT-0.6B-v3 Fine-tuned for ATC
-                - **Model**: qenneth/parakeet-tdt-0.6b-v3-finetuned-for-ATC
-                - **Framework**: NVIDIA NeMo
-                """
-            )
-
-            parakeet_audio = gr.Audio(
-                label="Upload Audio File", type="filepath", sources=["upload"]
-            )
-
-            parakeet_transcribe_btn = gr.Button(
-                "Transcribe", variant="primary", size="lg"
-            )
-
-            parakeet_ground_truth = gr.Textbox(
-                label="📝 Reference Transcript (Ground Truth)",
-                lines=3,
-                interactive=False,
-                placeholder="Select a sample audio to see the reference transcript...",
-            )
-
-            parakeet_output = gr.Textbox(
-                label="🤖 Model Transcription",
-                lines=8,
-                interactive=False,
-                placeholder="Transcription will appear here...",
-            )
-
-            parakeet_wer = gr.Textbox(
-                label="📊 Word Error Rate (WER)",
-                lines=1,
-                interactive=False,
-                placeholder="WER will be calculated after transcription...",
-            )
-
-            def transcribe_and_calculate_wer_parakeet(audio_path):
-                """Transcribe and calculate WER for Parakeet Fine-tuned"""
-                transcription = transcribe_parakeet(audio_path)
-                reference = get_ground_truth(audio_path)
-                wer_result = calculate_wer(reference, transcription)
-                return transcription, wer_result
-
-            parakeet_transcribe_btn.click(
-                fn=transcribe_and_calculate_wer_parakeet,
-                inputs=parakeet_audio,
-                outputs=[parakeet_output, parakeet_wer],
-            )
-
-            # Auto-populate ground truth when audio changes
-            parakeet_audio.change(
-                fn=get_ground_truth,
-                inputs=parakeet_audio,
-                outputs=parakeet_ground_truth,
-            )
-
-            # Example audio samples
-            gr.Examples(
-                examples=[
-                    ["samples/segment_002.wav"],
-                    ["samples/segment_003.wav"],
-                    ["samples/segment_011.wav"],
-                    ["samples/segment_051.wav"],
-                    ["samples/segment_037.wav"],
-                    ["samples/segment_024.wav"],
-                    ["samples/segment_033.wav"],
-                    ["samples/segment_036.wav"],
-                    ["samples/segment_045.wav"],
-                    ["samples/segment_048.wav"],
-                ],
-                inputs=parakeet_audio,
-                label="Try Sample Audio Files",
-            )
-
-        # Tab 3: Parakeet GenArabia
-        with gr.Tab("🟣 Parakeet GenArabia (ATC)"):
-            gr.Markdown(
-                """
-                ### Parakeet ATC - GenArabia Custom Model
+                ### GenArabia ASR Model
                 - **Model**: MrEzzat/parakeet_atc
                 - **Base**: NVIDIA Parakeet-TDT
                 - **Optimized for**: ATC communications
@@ -469,53 +333,53 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 """
             )
 
-            parakeet_mrezzat_audio = gr.Audio(
+            genarabia_audio = gr.Audio(
                 label="Upload Audio File", type="filepath", sources=["upload"]
             )
 
-            parakeet_mrezzat_transcribe_btn = gr.Button(
+            genarabia_transcribe_btn = gr.Button(
                 "Transcribe", variant="primary", size="lg"
             )
 
-            parakeet_mrezzat_ground_truth = gr.Textbox(
+            genarabia_ground_truth = gr.Textbox(
                 label="📝 Reference Transcript (Ground Truth)",
                 lines=3,
                 interactive=False,
                 placeholder="Select a sample audio to see the reference transcript...",
             )
 
-            parakeet_mrezzat_output = gr.Textbox(
+            genarabia_output = gr.Textbox(
                 label="🤖 Model Transcription",
                 lines=8,
                 interactive=False,
                 placeholder="Transcription will appear here...",
             )
 
-            parakeet_mrezzat_wer = gr.Textbox(
+            genarabia_wer = gr.Textbox(
                 label="📊 Word Error Rate (WER)",
                 lines=1,
                 interactive=False,
                 placeholder="WER will be calculated after transcription...",
             )
 
-            def transcribe_and_calculate_wer_parakeet_mrezzat(audio_path):
-                """Transcribe and calculate WER for Parakeet GenArabia"""
-                transcription = transcribe_parakeet_mrezzat(audio_path)
+            def transcribe_and_calculate_wer_genarabia(audio_path):
+                """Transcribe and calculate WER for GenArabia ASR"""
+                transcription = transcribe_genarabia(audio_path)
                 reference = get_ground_truth(audio_path)
                 wer_result = calculate_wer(reference, transcription)
                 return transcription, wer_result
 
-            parakeet_mrezzat_transcribe_btn.click(
-                fn=transcribe_and_calculate_wer_parakeet_mrezzat,
-                inputs=parakeet_mrezzat_audio,
-                outputs=[parakeet_mrezzat_output, parakeet_mrezzat_wer],
+            genarabia_transcribe_btn.click(
+                fn=transcribe_and_calculate_wer_genarabia,
+                inputs=genarabia_audio,
+                outputs=[genarabia_output, genarabia_wer],
             )
 
             # Auto-populate ground truth when audio changes
-            parakeet_mrezzat_audio.change(
+            genarabia_audio.change(
                 fn=get_ground_truth,
-                inputs=parakeet_mrezzat_audio,
-                outputs=parakeet_mrezzat_ground_truth,
+                inputs=genarabia_audio,
+                outputs=genarabia_ground_truth,
             )
 
             # Example audio samples
@@ -532,16 +396,16 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                     ["samples/segment_045.wav"],
                     ["samples/segment_048.wav"],
                 ],
-                inputs=parakeet_mrezzat_audio,
+                inputs=genarabia_audio,
                 label="Try Sample Audio Files",
             )
 
-        # Tab 4: Compare All
+        # Tab 3: Compare All
         with gr.Tab("📊 Compare Models"):
             gr.Markdown(
                 """
-                ### Compare All Three Models Side-by-Side
-                Upload an audio file and get transcriptions from all three models simultaneously.
+                ### Compare Both Models Side-by-Side
+                Upload an audio file and get transcriptions from both models simultaneously.
 
                 **Note**: Models load automatically on first use. Initial transcription may take longer while models are loading.
                 """
@@ -579,29 +443,14 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                     )
 
                 with gr.Column():
-                    gr.Markdown("### 🟢 Parakeet Fine-tuned")
-                    compare_parakeet_output = gr.Textbox(
-                        label="Parakeet Fine-tuned (ATC)",
+                    gr.Markdown("### 🟣 GenArabia ASR")
+                    compare_genarabia_output = gr.Textbox(
+                        label="GenArabia ASR",
                         lines=6,
                         interactive=False,
                         placeholder="Transcription will appear here...",
                     )
-                    compare_parakeet_wer = gr.Textbox(
-                        label="📊 WER",
-                        lines=1,
-                        interactive=False,
-                        placeholder="WER will appear here...",
-                    )
-
-                with gr.Column():
-                    gr.Markdown("### 🟣 Parakeet GenArabia")
-                    compare_parakeet_mrezzat_output = gr.Textbox(
-                        label="Parakeet GenArabia (ATC)",
-                        lines=6,
-                        interactive=False,
-                        placeholder="Transcription will appear here...",
-                    )
-                    compare_parakeet_mrezzat_wer = gr.Textbox(
+                    compare_genarabia_wer = gr.Textbox(
                         label="📊 WER",
                         lines=1,
                         interactive=False,
@@ -609,11 +458,9 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                     )
 
             def transcribe_all(audio_path):
-                """Transcribe with all three models and calculate WER"""
+                """Transcribe with both models and calculate WER"""
                 if audio_path is None:
                     return (
-                        "❌ Please upload an audio file",
-                        "WER: N/A",
                         "❌ Please upload an audio file",
                         "WER: N/A",
                         "❌ Please upload an audio file",
@@ -623,23 +470,19 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 # Get reference text
                 reference = get_ground_truth(audio_path)
 
-                # Transcribe with all models
+                # Transcribe with both models
                 whisper_orig_result = transcribe_whisper_original(audio_path)
-                parakeet_result = transcribe_parakeet(audio_path)
-                parakeet_mrezzat_result = transcribe_parakeet_mrezzat(audio_path)
+                genarabia_result = transcribe_genarabia(audio_path)
 
                 # Calculate WER for each model
                 whisper_orig_wer = calculate_wer(reference, whisper_orig_result)
-                parakeet_wer = calculate_wer(reference, parakeet_result)
-                parakeet_mrezzat_wer = calculate_wer(reference, parakeet_mrezzat_result)
+                genarabia_wer = calculate_wer(reference, genarabia_result)
 
                 return (
                     whisper_orig_result,
                     whisper_orig_wer,
-                    parakeet_result,
-                    parakeet_wer,
-                    parakeet_mrezzat_result,
-                    parakeet_mrezzat_wer,
+                    genarabia_result,
+                    genarabia_wer,
                 )
 
             compare_btn.click(
@@ -648,10 +491,8 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 outputs=[
                     compare_whisper_orig_output,
                     compare_whisper_orig_wer,
-                    compare_parakeet_output,
-                    compare_parakeet_wer,
-                    compare_parakeet_mrezzat_output,
-                    compare_parakeet_mrezzat_wer,
+                    compare_genarabia_output,
+                    compare_genarabia_wer,
                 ],
             )
 
