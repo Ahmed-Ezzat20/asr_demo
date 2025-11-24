@@ -5,6 +5,7 @@ import librosa
 import numpy as np
 import gc
 import os
+from jiwer import wer
 
 # Ground truth transcripts - stored statically
 GROUND_TRUTH = {
@@ -82,6 +83,30 @@ def get_ground_truth(audio_path):
 
     # Return the ground truth transcript if available
     return GROUND_TRUTH.get(filename, "Ground truth not available for this file")
+
+
+def calculate_wer(reference, hypothesis):
+    """
+    Calculate Word Error Rate (WER) between reference and hypothesis texts.
+
+    Args:
+        reference: Ground truth text
+        hypothesis: Predicted text from model
+
+    Returns:
+        str: Formatted WER string with percentage
+    """
+    if not reference or not hypothesis:
+        return "WER: N/A"
+
+    if reference == "Ground truth not available for this file":
+        return "WER: N/A (no reference available)"
+
+    try:
+        wer_score = wer(reference, hypothesis)
+        return f"WER: {wer_score * 100:.2f}%"
+    except Exception as e:
+        return f"WER: Error ({str(e)})"
 
 
 # Model configurations
@@ -305,10 +330,24 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 placeholder="Transcription will appear here...",
             )
 
+            whisper_orig_wer = gr.Textbox(
+                label="📊 Word Error Rate (WER)",
+                lines=1,
+                interactive=False,
+                placeholder="WER will be calculated after transcription...",
+            )
+
+            def transcribe_and_calculate_wer_whisper(audio_path):
+                """Transcribe and calculate WER for Whisper Original"""
+                transcription = transcribe_whisper_original(audio_path)
+                reference = get_ground_truth(audio_path)
+                wer_result = calculate_wer(reference, transcription)
+                return transcription, wer_result
+
             whisper_orig_transcribe_btn.click(
-                fn=transcribe_whisper_original,
+                fn=transcribe_and_calculate_wer_whisper,
                 inputs=whisper_orig_audio,
-                outputs=whisper_orig_output,
+                outputs=[whisper_orig_output, whisper_orig_wer],
             )
 
             # Auto-populate ground truth when audio changes
@@ -368,8 +407,24 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 placeholder="Transcription will appear here...",
             )
 
+            parakeet_wer = gr.Textbox(
+                label="📊 Word Error Rate (WER)",
+                lines=1,
+                interactive=False,
+                placeholder="WER will be calculated after transcription...",
+            )
+
+            def transcribe_and_calculate_wer_parakeet(audio_path):
+                """Transcribe and calculate WER for Parakeet Fine-tuned"""
+                transcription = transcribe_parakeet(audio_path)
+                reference = get_ground_truth(audio_path)
+                wer_result = calculate_wer(reference, transcription)
+                return transcription, wer_result
+
             parakeet_transcribe_btn.click(
-                fn=transcribe_parakeet, inputs=parakeet_audio, outputs=parakeet_output
+                fn=transcribe_and_calculate_wer_parakeet,
+                inputs=parakeet_audio,
+                outputs=[parakeet_output, parakeet_wer],
             )
 
             # Auto-populate ground truth when audio changes
@@ -431,10 +486,24 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 placeholder="Transcription will appear here...",
             )
 
+            parakeet_mrezzat_wer = gr.Textbox(
+                label="📊 Word Error Rate (WER)",
+                lines=1,
+                interactive=False,
+                placeholder="WER will be calculated after transcription...",
+            )
+
+            def transcribe_and_calculate_wer_parakeet_mrezzat(audio_path):
+                """Transcribe and calculate WER for Parakeet GenArabia"""
+                transcription = transcribe_parakeet_mrezzat(audio_path)
+                reference = get_ground_truth(audio_path)
+                wer_result = calculate_wer(reference, transcription)
+                return transcription, wer_result
+
             parakeet_mrezzat_transcribe_btn.click(
-                fn=transcribe_parakeet_mrezzat,
+                fn=transcribe_and_calculate_wer_parakeet_mrezzat,
                 inputs=parakeet_mrezzat_audio,
-                outputs=parakeet_mrezzat_output,
+                outputs=[parakeet_mrezzat_output, parakeet_mrezzat_wer],
             )
 
             # Auto-populate ground truth when audio changes
@@ -497,6 +566,12 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                         interactive=False,
                         placeholder="Transcription will appear here...",
                     )
+                    compare_whisper_orig_wer = gr.Textbox(
+                        label="📊 WER",
+                        lines=1,
+                        interactive=False,
+                        placeholder="WER will appear here...",
+                    )
 
                 with gr.Column():
                     gr.Markdown("### 🟢 Parakeet Fine-tuned")
@@ -505,6 +580,12 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                         lines=6,
                         interactive=False,
                         placeholder="Transcription will appear here...",
+                    )
+                    compare_parakeet_wer = gr.Textbox(
+                        label="📊 WER",
+                        lines=1,
+                        interactive=False,
+                        placeholder="WER will appear here...",
                     )
 
                 with gr.Column():
@@ -515,29 +596,57 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                         interactive=False,
                         placeholder="Transcription will appear here...",
                     )
+                    compare_parakeet_mrezzat_wer = gr.Textbox(
+                        label="📊 WER",
+                        lines=1,
+                        interactive=False,
+                        placeholder="WER will appear here...",
+                    )
 
             def transcribe_all(audio_path):
-                """Transcribe with all three models"""
+                """Transcribe with all three models and calculate WER"""
                 if audio_path is None:
                     return (
                         "❌ Please upload an audio file",
+                        "WER: N/A",
                         "❌ Please upload an audio file",
+                        "WER: N/A",
                         "❌ Please upload an audio file",
+                        "WER: N/A",
                     )
 
+                # Get reference text
+                reference = get_ground_truth(audio_path)
+
+                # Transcribe with all models
                 whisper_orig_result = transcribe_whisper_original(audio_path)
                 parakeet_result = transcribe_parakeet(audio_path)
                 parakeet_mrezzat_result = transcribe_parakeet_mrezzat(audio_path)
 
-                return whisper_orig_result, parakeet_result, parakeet_mrezzat_result
+                # Calculate WER for each model
+                whisper_orig_wer = calculate_wer(reference, whisper_orig_result)
+                parakeet_wer = calculate_wer(reference, parakeet_result)
+                parakeet_mrezzat_wer = calculate_wer(reference, parakeet_mrezzat_result)
+
+                return (
+                    whisper_orig_result,
+                    whisper_orig_wer,
+                    parakeet_result,
+                    parakeet_wer,
+                    parakeet_mrezzat_result,
+                    parakeet_mrezzat_wer,
+                )
 
             compare_btn.click(
                 fn=transcribe_all,
                 inputs=compare_audio,
                 outputs=[
                     compare_whisper_orig_output,
+                    compare_whisper_orig_wer,
                     compare_parakeet_output,
+                    compare_parakeet_wer,
                     compare_parakeet_mrezzat_output,
+                    compare_parakeet_mrezzat_wer,
                 ],
             )
 
