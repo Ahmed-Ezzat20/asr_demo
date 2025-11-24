@@ -265,8 +265,8 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
         Compare three state-of-the-art ASR models on air traffic control (ATC) communications:
 
         1. **Whisper Large v3 Original** - Baseline performance
-        2. **Parakeet-TDT-0.6B-v3 Fine-tuned for ATC** - WER: 5.99%
-        3. **Parakeet MrEzzat ATC** - Custom fine-tuned model for UAE ATC
+        2. **Parakeet-TDT-0.6B-v3 Fine-tuned for ATC**
+        3. **Parakeet GenArabia ATC** - Custom fine-tuned model for UAE ATC
 
         Switch between tabs to test each model individually or compare results side-by-side.
         """
@@ -279,10 +279,7 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 """
                 ### Whisper Large v3 Original
                 - **Model**: openai/whisper-large-v3
-                - **WER**: Baseline (not fine-tuned for ATC)
-                - **Base**: OpenAI Whisper Large v3
                 - **Optimized for**: General speech recognition
-                - **Note**: Model loads automatically on first transcription
                 """
             )
 
@@ -326,10 +323,10 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 examples=[
                     ["samples/segment_002.wav"],
                     ["samples/segment_003.wav"],
-                    ["samples/segment_006.wav"],
-                    ["samples/segment_013.wav"],
-                    ["samples/segment_017.wav"],
-                    ["samples/segment_026.wav"],
+                    ["samples/segment_011.wav"],
+                    ["samples/segment_051.wav"],
+                    ["samples/segment_037.wav"],
+                    ["samples/segment_024.wav"],
                     ["samples/segment_033.wav"],
                     ["samples/segment_036.wav"],
                     ["samples/segment_045.wav"],
@@ -345,11 +342,7 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 """
                 ### Parakeet-TDT-0.6B-v3 Fine-tuned for ATC
                 - **Model**: qenneth/parakeet-tdt-0.6b-v3-finetuned-for-ATC
-                - **WER**: 5.99% (Best performance)
-                - **Base**: NVIDIA Parakeet-TDT-0.6B-v3
-                - **Optimized for**: ATC communications with superior accuracy
                 - **Framework**: NVIDIA NeMo
-                - **Note**: Model loads automatically on first transcription
                 """
             )
 
@@ -391,10 +384,10 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 examples=[
                     ["samples/segment_002.wav"],
                     ["samples/segment_003.wav"],
-                    ["samples/segment_006.wav"],
-                    ["samples/segment_013.wav"],
-                    ["samples/segment_017.wav"],
-                    ["samples/segment_026.wav"],
+                    ["samples/segment_011.wav"],
+                    ["samples/segment_051.wav"],
+                    ["samples/segment_037.wav"],
+                    ["samples/segment_024.wav"],
                     ["samples/segment_033.wav"],
                     ["samples/segment_036.wav"],
                     ["samples/segment_045.wav"],
@@ -404,16 +397,15 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 label="Try Sample Audio Files",
             )
 
-        # Tab 3: Parakeet MrEzzat
-        with gr.Tab("🟣 Parakeet MrEzzat (ATC)"):
+        # Tab 3: Parakeet GenArabia
+        with gr.Tab("🟣 Parakeet GenArabia (ATC)"):
             gr.Markdown(
                 """
-                ### Parakeet ATC - MrEzzat Custom Model
+                ### Parakeet ATC - GenArabia Custom Model
                 - **Model**: MrEzzat/parakeet_atc
                 - **Base**: NVIDIA Parakeet-TDT
                 - **Optimized for**: ATC communications
                 - **Framework**: NVIDIA NeMo
-                - **Note**: Model loads automatically on first transcription
                 """
             )
 
@@ -457,10 +449,10 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 examples=[
                     ["samples/segment_002.wav"],
                     ["samples/segment_003.wav"],
-                    ["samples/segment_006.wav"],
-                    ["samples/segment_013.wav"],
-                    ["samples/segment_017.wav"],
-                    ["samples/segment_026.wav"],
+                    ["samples/segment_011.wav"],
+                    ["samples/segment_051.wav"],
+                    ["samples/segment_037.wav"],
+                    ["samples/segment_024.wav"],
                     ["samples/segment_033.wav"],
                     ["samples/segment_036.wav"],
                     ["samples/segment_045.wav"],
@@ -516,9 +508,9 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                     )
 
                 with gr.Column():
-                    gr.Markdown("### 🟣 Parakeet MrEzzat")
+                    gr.Markdown("### 🟣 Parakeet GenArabia")
                     compare_parakeet_mrezzat_output = gr.Textbox(
-                        label="Parakeet MrEzzat (ATC)",
+                        label="Parakeet GenArabia (ATC)",
                         lines=6,
                         interactive=False,
                         placeholder="Transcription will appear here...",
@@ -561,10 +553,10 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 examples=[
                     ["samples/segment_002.wav"],
                     ["samples/segment_003.wav"],
-                    ["samples/segment_006.wav"],
-                    ["samples/segment_013.wav"],
-                    ["samples/segment_017.wav"],
-                    ["samples/segment_026.wav"],
+                    ["samples/segment_011.wav"],
+                    ["samples/segment_051.wav"],
+                    ["samples/segment_037.wav"],
+                    ["samples/segment_024.wav"],
                     ["samples/segment_033.wav"],
                     ["samples/segment_036.wav"],
                     ["samples/segment_045.wav"],
@@ -573,26 +565,6 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
                 inputs=compare_audio,
                 label="Try Sample Audio Files",
             )
-
-    gr.Markdown(
-        """
-        ---
-        ### 📊 About the Models
-
-        Models are tested on the [ATC-ASR Dataset](https://huggingface.co/datasets/jacktol/ATC-ASR-Dataset).
-
-        **Model Links:**
-        - [Whisper Large v3 Original](https://huggingface.co/openai/whisper-large-v3)
-        - [Parakeet-TDT-0.6B-v3 Fine-tuned for ATC](https://huggingface.co/qenneth/parakeet-tdt-0.6b-v3-finetuned-for-ATC)
-
-        ### 💡 Usage Tips
-        - Upload audio files in WAV, MP3, or other common formats
-        - For best results, use 16kHz sample rate audio
-        - Parakeet model is fine-tuned for aviation-specific vocabulary (WER: 5.99%)
-        - Compare the original Whisper with the fine-tuned Parakeet to see the improvement
-        - Parakeet model requires NVIDIA NeMo toolkit
-        """
-    )
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860, share=True)
