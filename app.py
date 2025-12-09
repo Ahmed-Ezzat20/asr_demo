@@ -326,10 +326,7 @@ with gr.Blocks(title="ATC ASR - Model Comparison") as demo:
             gr.Markdown(
                 """
                 ### GenArabia ASR Model
-                - **Model**: MrEzzat/parakeet_atc
-                - **Base**: NVIDIA Parakeet-TDT
                 - **Optimized for**: ATC communications
-                - **Framework**: NVIDIA NeMo
                 """
             )
 
